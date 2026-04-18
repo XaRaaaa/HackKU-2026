@@ -21,3 +21,7 @@ web/.next/
 web/node_modules/
 web/.env.local
 web/.env
+# Secrets and Windows metadata
+kaggle.json
+*.kaggle.json
+*.Zone.Identifier

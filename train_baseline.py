@@ -1,11 +1,12 @@
 import argparse
 import json
+import random
 from pathlib import Path
 
 import torch
 from sklearn.metrics import classification_report
 from torch import nn
-from torch.utils.data import DataLoader, random_split
+from torch.utils.data import DataLoader, Subset
 from torchvision import datasets, models, transforms
 
 
@@ -63,6 +64,7 @@ def main():
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--image_size", type=int, default=224)
     parser.add_argument("--val_split", type=float, default=0.2)
+    parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--output_dir", type=str, default="artifacts")
     args = parser.parse_args()
 
@@ -70,16 +72,24 @@ def main():
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    random.seed(args.seed)
+    torch.manual_seed(args.seed)
+
     train_tfms, val_tfms = build_transforms(args.image_size)
 
-    full_ds = datasets.ImageFolder(root=str(data_dir), transform=train_tfms)
-    class_names = full_ds.classes
+    base_ds = datasets.ImageFolder(root=str(data_dir))
+    class_names = base_ds.classes
 
-    val_size = int(len(full_ds) * args.val_split)
-    train_size = len(full_ds) - val_size
+    val_size = int(len(base_ds) * args.val_split)
+    train_size = len(base_ds) - val_size
 
-    train_ds, val_ds = random_split(full_ds, [train_size, val_size])
-    val_ds.dataset.transform = val_tfms
+    indices = list(range(len(base_ds)))
+    random.Random(args.seed).shuffle(indices)
+    train_indices = indices[:train_size]
+    val_indices = indices[train_size:]
+
+    train_ds = Subset(datasets.ImageFolder(root=str(data_dir), transform=train_tfms), train_indices)
+    val_ds = Subset(datasets.ImageFolder(root=str(data_dir), transform=val_tfms), val_indices)
 
     train_loader = DataLoader(train_ds, batch_size=args.batch_size, shuffle=True)
     val_loader = DataLoader(val_ds, batch_size=args.batch_size, shuffle=False)
