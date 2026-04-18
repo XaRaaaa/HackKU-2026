@@ -1,5 +1,12 @@
 {
   "dependencies": {
     "mongodb": "^7.1.1"
+  },
+
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint ."
   }
 }
