@@ -16,6 +16,11 @@ data/
 .DS_Store
 .vscode/
 
+# Next.js frontend
+web/.next/
+web/node_modules/
+web/.env.local
+web/.env
 # Secrets and Windows metadata
 kaggle.json
 *.kaggle.json
