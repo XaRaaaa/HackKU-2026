@@ -11,13 +11,16 @@ if (!dbName) {
   throw new Error("Missing MONGODB_DB in environment.");
 }
 
+const mongoUri = uri;
+const mongoDatabaseName = dbName;
+
 declare global {
   var _mongoClientPromise: Promise<MongoClient> | undefined;
 }
 
 function getClientPromise() {
   if (!global._mongoClientPromise) {
-    const client = new MongoClient(uri, {
+    const client = new MongoClient(mongoUri, {
       serverSelectionTimeoutMS: 5000,
     });
     global._mongoClientPromise = client.connect();
@@ -29,7 +32,7 @@ function getClientPromise() {
 export async function getDatabase() {
   try {
     const connectedClient = await getClientPromise();
-    return connectedClient.db(dbName);
+    return connectedClient.db(mongoDatabaseName);
   } catch (error) {
     global._mongoClientPromise = undefined;
     throw error;

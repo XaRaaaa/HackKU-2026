@@ -7,6 +7,7 @@ export function UploadForm() {
   const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string>("");
+  const [address, setAddress] = useState("");
   const [status, setStatus] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -31,12 +32,18 @@ export function UploadForm() {
       return;
     }
 
+    if (!address.trim()) {
+      setStatus("Enter an address for the report.");
+      return;
+    }
+
     setIsSubmitting(true);
     setStatus("Uploading...");
 
     try {
       const formData = new FormData();
       formData.append("photo", file);
+      formData.append("address", address);
 
       const response = await fetch("/api/photos", {
         method: "POST",
@@ -52,6 +59,7 @@ export function UploadForm() {
       setStatus("Upload complete.");
       setFile(null);
       setPreviewUrl("");
+      setAddress("");
       form.reset();
       router.refresh();
     } catch (error) {
@@ -68,10 +76,10 @@ export function UploadForm() {
       <label
         htmlFor="photo"
         style={{
-          border: "1px dashed rgba(96, 78, 49, 0.35)",
+          border: "1px dashed rgba(35, 103, 200, 0.35)",
           borderRadius: 22,
           padding: 18,
-          background: "rgba(255,255,255,0.45)",
+          background: "rgba(255,255,255,0.5)",
           display: "grid",
           gap: 12,
         }}
@@ -97,11 +105,30 @@ export function UploadForm() {
               maxHeight: 260,
               objectFit: "cover",
               borderRadius: 22,
-              border: "1px solid rgba(96, 78, 49, 0.12)",
+              border: "1px solid rgba(35, 103, 200, 0.12)",
             }}
           />
         </div>
       ) : null}
+
+      <label style={{ display: "grid", gap: 6 }}>
+        <span style={{ display: "block", height: 4 }} aria-hidden="true" />
+        <span style={{ fontWeight: 700 }}>Street Address</span>
+        <input
+          name="address"
+          type="text"
+          autoComplete="street-address"
+          placeholder="1450 Jayhawk Blvd, Lawrence, KS"
+          value={address}
+          onChange={(event) => setAddress(event.target.value)}
+          style={{
+            border: "1px solid rgba(35, 103, 200, 0.22)",
+            borderRadius: 16,
+            padding: "12px 14px",
+            background: "rgba(255,255,255,0.72)",
+          }}
+        />
+      </label>
 
       <button
         type="submit"
@@ -111,7 +138,7 @@ export function UploadForm() {
           border: 0,
           borderRadius: 999,
           padding: "14px 18px",
-          background: isSubmitting ? "#caa08f" : "var(--accent)",
+          background: isSubmitting ? "#7fa6de" : "var(--accent)",
           color: "white",
           fontWeight: 700,
           cursor: isSubmitting ? "progress" : "pointer",
@@ -124,7 +151,9 @@ export function UploadForm() {
         aria-live="polite"
         style={{
           margin: 0,
-          minHeight: 24,
+          minHeight: 18,
+          fontSize: 14,
+          lineHeight: 1.4,
           color: status === "Upload complete." ? "var(--accent-dark)" : "var(--muted)",
         }}
       >

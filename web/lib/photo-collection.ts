@@ -6,6 +6,11 @@ export type StoredPhoto = {
   contentType: string;
   uploadedAt: string;
   size: number;
+  address?: string;
+  location?: {
+    latitude: number;
+    longitude: number;
+  };
 };
 
 export async function getPhotoCollection() {

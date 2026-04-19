@@ -1,13 +1,13 @@
 :root {
   color-scheme: light;
-  --bg: #f5efe4;
-  --card: rgba(255, 252, 246, 0.88);
-  --card-border: rgba(96, 78, 49, 0.12);
-  --text: #2b2114;
-  --muted: #6f604c;
-  --accent: #b85c38;
-  --accent-dark: #944626;
-  --shadow: 0 20px 60px rgba(77, 53, 24, 0.14);
+  --bg: #e8f1fb;
+  --card: rgba(245, 250, 255, 0.9);
+  --card-border: rgba(50, 92, 148, 0.14);
+  --text: #12233d;
+  --muted: #537194;
+  --accent: #2367c8;
+  --accent-dark: #154b99;
+  --shadow: 0 20px 60px rgba(24, 64, 121, 0.14);
 }
 
 * {
@@ -21,8 +21,8 @@ body {
   font-family: Georgia, "Times New Roman", serif;
   color: var(--text);
   background:
-    radial-gradient(circle at top, rgba(255, 255, 255, 0.7), transparent 35%),
-    linear-gradient(135deg, #efe2c3 0%, #f7f2e9 45%, #ecd8ba 100%);
+    radial-gradient(circle at top, rgba(255, 255, 255, 0.75), transparent 35%),
+    linear-gradient(135deg, #d7e7fb 0%, #eef5ff 46%, #c6dcf8 100%);
 }
 
 body {

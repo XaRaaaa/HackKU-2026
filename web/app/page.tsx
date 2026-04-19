@@ -1,9 +1,28 @@
 import { ObjectId } from "mongodb";
+import nextDynamic from "next/dynamic";
 import Image from "next/image";
-import { getPhotoCollection } from "@/lib/photo-collection";
 import { UploadForm } from "@/components/upload-form";
+import { getPhotoCollection } from "@/lib/photo-collection";
 
 export const dynamic = "force-dynamic";
+
+const PotholeMap = nextDynamic(
+  () => import("@/components/pothole-map").then((module) => module.PotholeMap),
+  {
+    ssr: false,
+  },
+);
+
+type PotholeItem = {
+  _id: string;
+  filename: string;
+  contentType: string;
+  uploadedAt: string;
+  size: number;
+  address?: string;
+  latitude?: number;
+  longitude?: number;
+};
 
 async function getPhotos() {
   try {
@@ -18,6 +37,8 @@ async function getPhotos() {
             contentType: 1,
             uploadedAt: 1,
             size: 1,
+            address: 1,
+            location: 1,
           },
         },
       )
@@ -26,20 +47,35 @@ async function getPhotos() {
       .toArray();
 
     return {
-      photos: photos.map((photo) => ({
-        _id: (photo._id as ObjectId).toString(),
-        filename: String(photo.filename),
-        contentType: String(photo.contentType),
-        uploadedAt: new Date(photo.uploadedAt).toLocaleString(),
-        size: Number(photo.size),
-      })),
+      photos: photos.map((photo) => {
+        const latitude =
+          typeof photo.location?.latitude === "number"
+            ? photo.location.latitude
+            : undefined;
+        const longitude =
+          typeof photo.location?.longitude === "number"
+            ? photo.location.longitude
+            : undefined;
+
+        return {
+          _id: (photo._id as ObjectId).toString(),
+          filename: String(photo.filename),
+          contentType: String(photo.contentType),
+          uploadedAt: new Date(photo.uploadedAt).toLocaleString(),
+          size: Number(photo.size),
+          address:
+            typeof photo.address === "string" ? photo.address : undefined,
+          latitude,
+          longitude,
+        };
+      }),
       loadError: "",
     };
   } catch (error) {
     console.error("Unable to load photos from MongoDB.", error);
 
     return {
-      photos: [],
+      photos: [] as PotholeItem[],
       loadError:
         "The app could not reach MongoDB right now. Check the connection string, Atlas network access, and TLS settings.",
     };
@@ -54,31 +90,40 @@ function formatFileSize(size: number) {
   return `${Math.max(1, Math.round(size / 1024))} KB`;
 }
 
+function formatAddress(photo: PotholeItem) {
+  return photo.address ?? "Address not added yet";
+}
+
 export default async function HomePage() {
   const { photos, loadError } = await getPhotos();
+  const mappedPhotos = photos.filter(
+    (photo) => photo.latitude !== undefined && photo.longitude !== undefined,
+  );
 
   return (
     <main
       style={{
-        padding: "48px 20px 80px",
+        padding: "40px 16px 80px",
       }}
     >
       <section
         style={{
-          maxWidth: 1100,
+          maxWidth: 1180,
           margin: "0 auto",
           display: "grid",
-          gap: 28,
+          gap: 24,
         }}
       >
-        <div
+        <section
           style={{
             background: "var(--card)",
             border: "1px solid var(--card-border)",
             boxShadow: "var(--shadow)",
-            borderRadius: 28,
-            padding: "32px",
+            borderRadius: 30,
+            padding: "28px",
             backdropFilter: "blur(8px)",
+            display: "grid",
+            gap: 20,
           }}
         >
           <p
@@ -90,36 +135,37 @@ export default async function HomePage() {
               color: "var(--accent-dark)",
             }}
           >
-            Phase 1
+            Street Wear Monitor
           </p>
           <h1
             style={{
-              margin: "12px 0 10px",
-              fontSize: "clamp(2.4rem, 6vw, 4.8rem)",
-              lineHeight: 0.95,
-              maxWidth: 700,
+              margin: 0,
+              fontSize: "clamp(2.6rem, 7vw, 5.8rem)",
+              lineHeight: 0.92,
+              maxWidth: 860,
             }}
           >
-            Asphalt photo intake for future analysis.
+            Log potholes, pin damage, and map the trouble spots.
           </h1>
           <p
             style={{
               margin: 0,
-              maxWidth: 680,
+              maxWidth: 760,
               fontSize: 18,
-              lineHeight: 1.6,
+              lineHeight: 1.7,
               color: "var(--muted)",
             }}
           >
-            Upload images now, keep them in MongoDB, and leave a clean place to
-            plug in model inference later.
+            Capture road damage with a photo, attach a street address, and keep
+            the field team aligned with one upload queue, one pothole list, and
+            one live map.
           </p>
-        </div>
+        </section>
 
-        <div
+        <section
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+            gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
             gap: 24,
           }}
         >
@@ -132,7 +178,7 @@ export default async function HomePage() {
               padding: "28px",
             }}
           >
-            <h2 style={{ marginTop: 0, marginBottom: 8 }}>Upload a Photo</h2>
+            <h2 style={{ marginTop: 0, marginBottom: 8 }}>Submit a Report</h2>
             <p
               style={{
                 marginTop: 0,
@@ -141,8 +187,8 @@ export default async function HomePage() {
                 lineHeight: 1.6,
               }}
             >
-              This starter accepts `jpg`, `jpeg`, `png`, and `webp` files and
-              stores them directly in MongoDB.
+              Add a road-damage image, enter the street address, and push it into
+              the pothole queue.
             </p>
             <UploadForm />
 
@@ -151,7 +197,7 @@ export default async function HomePage() {
                 style={{
                   marginTop: 16,
                   marginBottom: 0,
-                  color: "#8a3d2f",
+                  color: "#365f9d",
                   lineHeight: 1.6,
                 }}
               >
@@ -167,21 +213,65 @@ export default async function HomePage() {
               boxShadow: "var(--shadow)",
               borderRadius: 28,
               padding: "28px",
+              display: "grid",
+              gap: 18,
+              alignContent: "start",
+              maxHeight: 620,
+              overflow: "hidden",
             }}
           >
             <div
               style={{
                 display: "flex",
                 justifyContent: "space-between",
-                alignItems: "baseline",
+                alignItems: "flex-start",
+                flexWrap: "wrap",
                 gap: 12,
-                marginBottom: 20,
               }}
             >
-              <h2 style={{ margin: 0 }}>Recent Uploads</h2>
-              <span style={{ color: "var(--muted)", fontSize: 14 }}>
-                {photos.length} saved
-              </span>
+              <div style={{ display: "grid", gap: 6 }}>
+                <h2 style={{ margin: 0 }}>Pothole List</h2>
+                <span style={{ color: "var(--muted)", fontSize: 14 }}>
+                  {photos.length} tracked
+                </span>
+              </div>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+                  gap: 14,
+                  flex: "1 1 320px",
+                }}
+              >
+                <div
+                  style={{
+                    borderRadius: 22,
+                    padding: "18px 20px",
+                    background: "rgba(255,255,255,0.62)",
+                    border: "1px solid var(--card-border)",
+                  }}
+                >
+                  <div style={{ fontSize: 13, color: "var(--muted)" }}>
+                    Logged Cases
+                  </div>
+                  <div style={{ fontSize: 32, fontWeight: 700 }}>{photos.length}</div>
+                </div>
+                <div
+                  style={{
+                    borderRadius: 22,
+                    padding: "18px 20px",
+                    background: "rgba(255,255,255,0.62)",
+                    border: "1px solid var(--card-border)",
+                  }}
+                >
+                  <div style={{ fontSize: 13, color: "var(--muted)" }}>
+                    Map Pins
+                  </div>
+                  <div style={{ fontSize: 32, fontWeight: 700 }}>
+                    {mappedPhotos.length}
+                  </div>
+                </div>
+              </div>
             </div>
 
             {photos.length === 0 ? (
@@ -195,15 +285,16 @@ export default async function HomePage() {
                 }}
               >
                 {loadError
-                  ? "Recent uploads are temporarily unavailable because MongoDB could not be reached."
-                  : "No photos yet. Upload one on the left to confirm the pipeline is working."}
+                  ? "Pothole data is temporarily unavailable because MongoDB could not be reached."
+                  : "No potholes logged yet. Submit one on the left to start the field list."}
               </div>
             ) : (
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-                  gap: 18,
+                  gap: 14,
+                  overflowY: "auto",
+                  paddingRight: 6,
                 }}
               >
                 {photos.map((photo) => (
@@ -211,27 +302,32 @@ export default async function HomePage() {
                     key={photo._id}
                     style={{
                       display: "grid",
-                      gap: 10,
+                      gridTemplateColumns: "88px minmax(0, 1fr)",
+                      gap: 14,
+                      padding: "14px",
+                      borderRadius: 22,
+                      border: "1px solid var(--card-border)",
+                      background: "rgba(255,255,255,0.54)",
                     }}
                   >
                     <div
                       style={{
                         position: "relative",
-                        aspectRatio: "4 / 3",
+                        aspectRatio: "1 / 1",
                         borderRadius: 18,
                         overflow: "hidden",
-                        background: "#eadcc8",
+                        background: "#d8e8fb",
                       }}
                     >
                       <Image
                         src={`/api/photos/${photo._id}`}
                         alt={photo.filename}
                         fill
-                        sizes="(max-width: 900px) 100vw, 33vw"
+                        sizes="88px"
                         style={{ objectFit: "cover" }}
                       />
                     </div>
-                    <div>
+                    <div style={{ minWidth: 0 }}>
                       <div
                         style={{
                           fontSize: 16,
@@ -254,13 +350,72 @@ export default async function HomePage() {
                       >
                         {formatFileSize(photo.size)} · {photo.uploadedAt}
                       </div>
+                      <div
+                        style={{
+                          marginTop: 6,
+                          fontSize: 14,
+                          color: "var(--text)",
+                          lineHeight: 1.5,
+                        }}
+                      >
+                        {formatAddress(photo)}
+                      </div>
                     </div>
                   </article>
                 ))}
               </div>
             )}
           </div>
-        </div>
+        </section>
+
+        <section
+          style={{
+            background: "var(--card)",
+            border: "1px solid var(--card-border)",
+            boxShadow: "var(--shadow)",
+            borderRadius: 30,
+            padding: "28px",
+            display: "grid",
+            gap: 18,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: 12,
+            }}
+          >
+            <div>
+              <h2 style={{ margin: 0 }}>Street Damage Map</h2>
+              <p
+                style={{
+                  margin: "6px 0 0",
+                  color: "var(--muted)",
+                  lineHeight: 1.6,
+                }}
+              >
+                Pins appear here for every report with a matched street address.
+              </p>
+            </div>
+            <div style={{ color: "var(--muted)", fontSize: 14 }}>
+              {mappedPhotos.length} mapped reports
+            </div>
+          </div>
+
+          <PotholeMap
+            items={mappedPhotos.map((photo) => ({
+              id: photo._id,
+              title: photo.filename,
+              uploadedAt: photo.uploadedAt,
+              address: photo.address,
+              latitude: photo.latitude ?? 0,
+              longitude: photo.longitude ?? 0,
+            }))}
+          />
+        </section>
       </section>
     </main>
   );
