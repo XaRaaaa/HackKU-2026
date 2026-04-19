@@ -1,0 +1,51 @@
+{
+  "D00_longitudinal_crack": {
+    "precision": 0.7470760233918129,
+    "recall": 0.7268847795163584,
+    "f1-score": 0.7368421052631579,
+    "support": 1406.0
+  },
+  "D10_transverse_crack": {
+    "precision": 0.7368421052631579,
+    "recall": 0.5800376647834274,
+    "f1-score": 0.649104320337197,
+    "support": 531.0
+  },
+  "D20_alligator_crack": {
+    "precision": 0.8125,
+    "recall": 0.7647058823529411,
+    "f1-score": 0.7878787878787878,
+    "support": 1003.0
+  },
+  "D40_pothole": {
+    "precision": 0.7255139056831923,
+    "recall": 0.8,
+    "f1-score": 0.7609384908053266,
+    "support": 750.0
+  },
+  "D43_crosswalk_blur": {
+    "precision": 0.7452229299363057,
+    "recall": 0.5064935064935064,
+    "f1-score": 0.6030927835051546,
+    "support": 231.0
+  },
+  "no_damage": {
+    "precision": 0.8111545988258317,
+    "recall": 0.9025585193249864,
+    "f1-score": 0.8544189641844885,
+    "support": 1837.0
+  },
+  "accuracy": 0.7766585620006947,
+  "macro avg": {
+    "precision": 0.7630515938500501,
+    "recall": 0.71344672541187,
+    "f1-score": 0.732045908662352,
+    "support": 5758.0
+  },
+  "weighted avg": {
+    "precision": 0.7750890015464328,
+    "recall": 0.7766585620006947,
+    "f1-score": 0.7729251053563854,
+    "support": 5758.0
+  }
+}

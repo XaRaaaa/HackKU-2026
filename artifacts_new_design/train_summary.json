@@ -1,0 +1,20 @@
+{
+  "device": "cuda",
+  "amp_enabled": true,
+  "optimizer": "adamw",
+  "model_name": "efficientnet_v2_s",
+  "image_size": 320,
+  "weight_decay": 0.01,
+  "label_smoothing": 0.0,
+  "epochs_requested": 30,
+  "epochs_trained": 12,
+  "early_stopping_patience": 6,
+  "early_stopping_min_delta": 0.0,
+  "validation_strategy": "separate_directory",
+  "train_samples": 26869,
+  "val_samples": 5758,
+  "best_epoch": 6,
+  "best_val_accuracy": 0.7766585620006947,
+  "best_val_macro_f1": 0.732045908662352,
+  "num_classes": 6
+}
