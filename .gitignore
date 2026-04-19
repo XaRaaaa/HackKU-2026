@@ -11,6 +11,10 @@ venv/
 # Model artifacts and local data
 artifacts/
 data/
+archive/
+Pothole_Segmentation_YOLOv8.v1i.yolov8-obb/
+artifacts_sample/
+datasets/raw/
 
 # OS/editor
 .DS_Store
@@ -25,3 +29,7 @@ web/.env
 kaggle.json
 *.kaggle.json
 *.Zone.Identifier
+
+# Keep folder structure docs tracked
+!datasets/README.md
+!notebooks/README.md
