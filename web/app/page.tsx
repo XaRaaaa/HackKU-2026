@@ -6,31 +6,44 @@ import { UploadForm } from "@/components/upload-form";
 export const dynamic = "force-dynamic";
 
 async function getPhotos() {
-  const collection = await getPhotoCollection();
+  try {
+    const collection = await getPhotoCollection();
 
-  const photos = await collection
-    .find(
-      {},
-      {
-        projection: {
-          filename: 1,
-          contentType: 1,
-          uploadedAt: 1,
-          size: 1,
+    const photos = await collection
+      .find(
+        {},
+        {
+          projection: {
+            filename: 1,
+            contentType: 1,
+            uploadedAt: 1,
+            size: 1,
+          },
         },
-      },
-    )
-    .sort({ uploadedAt: -1 })
-    .limit(12)
-    .toArray();
+      )
+      .sort({ uploadedAt: -1 })
+      .limit(12)
+      .toArray();
 
-  return photos.map((photo) => ({
-    _id: (photo._id as ObjectId).toString(),
-    filename: String(photo.filename),
-    contentType: String(photo.contentType),
-    uploadedAt: new Date(photo.uploadedAt).toLocaleString(),
-    size: Number(photo.size),
-  }));
+    return {
+      photos: photos.map((photo) => ({
+        _id: (photo._id as ObjectId).toString(),
+        filename: String(photo.filename),
+        contentType: String(photo.contentType),
+        uploadedAt: new Date(photo.uploadedAt).toLocaleString(),
+        size: Number(photo.size),
+      })),
+      loadError: "",
+    };
+  } catch (error) {
+    console.error("Unable to load photos from MongoDB.", error);
+
+    return {
+      photos: [],
+      loadError:
+        "The app could not reach MongoDB right now. Check the connection string, Atlas network access, and TLS settings.",
+    };
+  }
 }
 
 function formatFileSize(size: number) {
@@ -42,7 +55,7 @@ function formatFileSize(size: number) {
 }
 
 export default async function HomePage() {
-  const photos = await getPhotos();
+  const { photos, loadError } = await getPhotos();
 
   return (
     <main
@@ -132,6 +145,19 @@ export default async function HomePage() {
               stores them directly in MongoDB.
             </p>
             <UploadForm />
+
+            {loadError ? (
+              <p
+                style={{
+                  marginTop: 16,
+                  marginBottom: 0,
+                  color: "#8a3d2f",
+                  lineHeight: 1.6,
+                }}
+              >
+                {loadError}
+              </p>
+            ) : null}
           </div>
 
           <div
@@ -168,8 +194,9 @@ export default async function HomePage() {
                   lineHeight: 1.7,
                 }}
               >
-                No photos yet. Upload one on the left to confirm the pipeline is
-                working.
+                {loadError
+                  ? "Recent uploads are temporarily unavailable because MongoDB could not be reached."
+                  : "No photos yet. Upload one on the left to confirm the pipeline is working."}
               </div>
             ) : (
               <div

@@ -15,15 +15,23 @@ declare global {
   var _mongoClientPromise: Promise<MongoClient> | undefined;
 }
 
-const client = new MongoClient(uri);
-const clientPromise = global._mongoClientPromise ?? client.connect();
+function getClientPromise() {
+  if (!global._mongoClientPromise) {
+    const client = new MongoClient(uri, {
+      serverSelectionTimeoutMS: 5000,
+    });
+    global._mongoClientPromise = client.connect();
+  }
 
-if (process.env.NODE_ENV !== "production") {
-  global._mongoClientPromise = clientPromise;
+  return global._mongoClientPromise;
 }
 
 export async function getDatabase() {
-  const connectedClient = await clientPromise;
-  console.log("Connected to DB:", dbName);
-  return connectedClient.db(dbName);
+  try {
+    const connectedClient = await getClientPromise();
+    return connectedClient.db(dbName);
+  } catch (error) {
+    global._mongoClientPromise = undefined;
+    throw error;
+  }
 }
