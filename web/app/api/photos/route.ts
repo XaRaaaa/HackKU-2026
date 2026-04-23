@@ -36,17 +36,17 @@ type GeminiNarrative = {
 
 function getProjectRoot() {
   const cwd = process.cwd();
-  const directPredictScript = path.join(cwd, "predict.py");
+  const candidates = [
+    cwd,
+    path.join(cwd, "web"),
+    path.resolve(cwd, ".."),
+    path.resolve(cwd, "..", "web"),
+  ];
 
-  if (existsSync(directPredictScript)) {
-    return cwd;
-  }
-
-  const parent = path.resolve(cwd, "..");
-  const parentPredictScript = path.join(parent, "predict.py");
-
-  if (existsSync(parentPredictScript)) {
-    return parent;
+  for (const candidate of new Set(candidates)) {
+    if (existsSync(path.join(candidate, "predict.py"))) {
+      return candidate;
+    }
   }
 
   return cwd;
@@ -57,12 +57,21 @@ function getPythonExecutable(projectRoot: string) {
     return process.env.PYTHON_EXECUTABLE;
   }
 
-  const venvPython = path.join(projectRoot, ".venv", "Scripts", "python.exe");
-  if (existsSync(venvPython)) {
-    return venvPython;
+  const parent = path.resolve(projectRoot, "..");
+  const candidates = [
+    path.join(projectRoot, ".venv", "Scripts", "python.exe"),
+    path.join(projectRoot, ".venv", "bin", "python"),
+    path.join(parent, ".venv", "Scripts", "python.exe"),
+    path.join(parent, ".venv", "bin", "python"),
+  ];
+
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) {
+      return candidate;
+    }
   }
 
-  return "python";
+  return process.platform === "win32" ? "python" : "python3";
 }
 
 function parseClassifierOutput(stdout: string): ClassifierResult {
@@ -245,6 +254,17 @@ function parseGeminiTextToNarrative(
   }
 }
 
+function getGeminiModelCandidates() {
+  const configuredModels = (process.env.GEMINI_MODEL ?? "")
+    .split(",")
+    .map((modelName) => modelName.trim())
+    .filter(Boolean);
+
+  const defaults = ["gemini-2.0-flash", "gemini-1.5-flash"];
+
+  return [...new Set([...configuredModels, ...defaults])];
+}
+
 async function createGeminiNarrative(
   classifier: ClassifierResult,
   address: string,
@@ -254,8 +274,8 @@ async function createGeminiNarrative(
     throw new Error("Missing GEMINI_API or GEMINI_API_KEY in environment.");
   }
 
-  const modelName = process.env.GEMINI_MODEL ?? "gemini-1.5-flash";
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelName)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+  const modelCandidates = getGeminiModelCandidates();
+  const apiVersions = ["v1beta", "v1"] as const;
   const fallbackAuthority = defaultAuthorityFromAddress(address);
 
   const prompt = [
@@ -274,49 +294,69 @@ async function createGeminiNarrative(
     `Fallback authority if uncertain: ${fallbackAuthority}`,
   ].join("\n");
 
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      contents: [
-        {
-          role: "user",
-          parts: [{ text: prompt }],
-        },
-      ],
-      generationConfig: {
-        temperature: 0.2,
-        responseMimeType: "application/json",
+  const requestBody = {
+    contents: [
+      {
+        role: "user",
+        parts: [{ text: prompt }],
       },
-    }),
-  });
-
-  if (!response.ok) {
-    const responseBody = await response.text();
-    throw new Error(
-      `Gemini request failed with status ${response.status}. ${responseBody}`.trim(),
-    );
-  }
-
-  const payload = (await response.json()) as {
-    candidates?: Array<{
-      content?: {
-        parts?: Array<{
-          text?: string;
-        }>;
-      };
-    }>;
+    ],
+    generationConfig: {
+      temperature: 0.2,
+      responseMimeType: "application/json",
+    },
   };
 
-  const text =
-    payload.candidates?.[0]?.content?.parts
-      ?.map((part) => part.text ?? "")
-      .join("\n")
-      .trim() ?? "";
+  const notFoundAttempts: string[] = [];
 
-  return parseGeminiTextToNarrative(text, fallbackAuthority);
+  for (const modelName of modelCandidates) {
+    for (const apiVersion of apiVersions) {
+      const url = `https://generativelanguage.googleapis.com/${apiVersion}/models/${encodeURIComponent(modelName)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        const responseBody = await response.text();
+
+        if (response.status === 404) {
+          notFoundAttempts.push(`${modelName}@${apiVersion}`);
+          continue;
+        }
+
+        throw new Error(
+          `Gemini request failed with status ${response.status} for model ${modelName} (${apiVersion}). ${responseBody}`.trim(),
+        );
+      }
+
+      const payload = (await response.json()) as {
+        candidates?: Array<{
+          content?: {
+            parts?: Array<{
+              text?: string;
+            }>;
+          };
+        }>;
+      };
+
+      const text =
+        payload.candidates?.[0]?.content?.parts
+          ?.map((part) => part.text ?? "")
+          .join("\n")
+          .trim() ?? "";
+
+      return parseGeminiTextToNarrative(text, fallbackAuthority);
+    }
+  }
+
+  throw new Error(
+    `Gemini model endpoint returned 404 for all candidates: ${notFoundAttempts.join(", ")}. Set GEMINI_MODEL to a valid model for your API key.`,
+  );
 }
 
 export async function POST(request: Request) {

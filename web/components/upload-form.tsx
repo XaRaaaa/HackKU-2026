@@ -2,6 +2,10 @@
 
 import { useState, type ChangeEvent, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import {
+  formatClassifierLabel,
+  formatSeverityLabel,
+} from "@/lib/classification-labels";
 
 type BrowserLocation = {
   latitude: number;
@@ -302,14 +306,16 @@ export function UploadForm() {
           {latestReport.classifier ? (
             <>
               <p style={{ margin: 0, lineHeight: 1.5 }}>
-                <strong>Class:</strong> {latestReport.classifier.prediction}
+                <strong>Class:</strong>{" "}
+                {formatClassifierLabel(latestReport.classifier.prediction)}
               </p>
               <p style={{ margin: 0, lineHeight: 1.5 }}>
                 <strong>Confidence:</strong>{" "}
                 {formatConfidence(latestReport.classifier.confidence)}
               </p>
               <p style={{ margin: 0, lineHeight: 1.5 }}>
-                <strong>Severity:</strong> {latestReport.classifier.severity}
+                <strong>Severity:</strong>{" "}
+                {formatSeverityLabel(latestReport.classifier.severity)}
               </p>
               <p style={{ margin: 0, lineHeight: 1.5 }}>
                 <strong>Action:</strong>{" "}
@@ -327,12 +333,6 @@ export function UploadForm() {
           {latestReport.authorityToReport ? (
             <p style={{ margin: 0, lineHeight: 1.6 }}>
               <strong>Report To:</strong> {latestReport.authorityToReport}
-            </p>
-          ) : null}
-
-          {latestReport.analysisNote ? (
-            <p style={{ margin: 0, lineHeight: 1.6, color: "#f4c574" }}>
-              <strong>Gemini Debug:</strong> {latestReport.analysisNote}
             </p>
           ) : null}
 

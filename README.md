@@ -6,6 +6,18 @@ RoadScout is a road-damage reporting app that combines:
 - Gemini-generated reporting summaries and authority recommendations
 - MongoDB storage for uploaded photos and analysis results
 
+## Best Results: Photo Capture Guidance
+
+For the AI classifier to perform best, take road photos from a bird's-eye or high downward angle whenever possible.
+
+- Prefer a top-down shot of the damaged region (standing over it or from a higher curb viewpoint).
+- Keep the damage centered and clearly visible in frame.
+- Avoid extreme side angles, heavy motion blur, and low-light shots.
+- Include enough surrounding pavement context so crack direction/pattern is visible.
+- Avoid blocking the damage with shadows, feet, or vehicle parts.
+
+These capture habits substantially improve class and severity reliability.
+
 ## Repository Structure
 
 - `web/`: Next.js frontend + API routes
@@ -58,6 +70,7 @@ Notes:
 - `GEMINI_API_KEY` is also accepted instead of `GEMINI_API`.
 - `NOMINATIM_CONTACT_EMAIL` is also accepted instead of `NOMINATIM_CONTACT_API`.
 - The API route attempts to use `.venv\Scripts\python.exe` automatically for local classifier execution.
+- For local development, prefer `web/.env.local` over `web/.env`.
 
 ## 4) Run the App Locally
 
@@ -114,7 +127,10 @@ python train_baseline.py --data_dir data\rdd_imagefolder\train --val_dir data\rd
 	Confirm `.venv` exists, dependencies are installed, and `artifacts_new_design/baseline_model.pt` plus `artifacts_new_design/labels.json` are present.
 - Geocoding errors:
 	Verify network access to OpenStreetMap Nominatim and provide `NOMINATIM_CONTACT_API` or `NOMINATIM_CONTACT_EMAIL`.
+- Gemini quota/rate limits:
+	If Gemini returns quota errors, the app falls back to a classifier-only summary so report creation still succeeds.
 
+## Deployment
 ## Scripts
 
 From project root:

@@ -2,6 +2,10 @@ import { ObjectId } from "mongodb";
 import nextDynamic from "next/dynamic";
 import Image from "next/image";
 import { UploadForm } from "@/components/upload-form";
+import {
+  formatClassifierLabel,
+  formatSeverityLabel,
+} from "@/lib/classification-labels";
 import { getPhotoCollection } from "@/lib/photo-collection";
 
 export const dynamic = "force-dynamic";
@@ -427,9 +431,9 @@ export default async function HomePage() {
                             color: "var(--accent-dark)",
                           }}
                         >
-                          {photo.classifier.prediction} -
+                          {formatClassifierLabel(photo.classifier.prediction)} -
                           {` ${(photo.classifier.confidence * 100).toFixed(1)}%`} -
-                          {` ${photo.classifier.severity}`}
+                          {` ${formatSeverityLabel(photo.classifier.severity)}`}
                         </div>
                       ) : null}
 
