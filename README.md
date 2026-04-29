@@ -1,5 +1,5 @@
-# RoadScout (HackKU 2026)
-
+# RoadScout
+Submitted to HackKU 2026: https://devpost.com/software/hackku-2026?ref_content=my-projects-tab&ref_feature=my_projects
 RoadScout is a road-damage reporting app that combines:
 - A PyTorch classifier for road-damage type and severity (deployed externally via Railway)
 - A Next.js web app for upload, geolocation, map display, and report history
