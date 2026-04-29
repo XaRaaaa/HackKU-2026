@@ -1,10 +1,4 @@
 import { NextResponse } from "next/server";
-import { execFile } from "node:child_process";
-import { existsSync } from "node:fs";
-import { writeFile, unlink } from "node:fs/promises";
-import os from "node:os";
-import path from "node:path";
-import { promisify } from "node:util";
 import { getPhotoCollection } from "@/lib/photo-collection";
 
 const ALLOWED_TYPES = new Set([
@@ -13,12 +7,12 @@ const ALLOWED_TYPES = new Set([
   "image/webp",
 ]);
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
+// Vercel Serverless Functions have a strict payload limit of 4.5 MB
+const MAX_FILE_SIZE = 4.5 * 1024 * 1024;
 const nominatimContact =
   process.env.NOMINATIM_CONTACT_EMAIL ??
   process.env.NOMINATIM_CONTACT_API ??
   "hackku-2026@example.com";
-const execFileAsync = promisify(execFile);
 
 type ClassifierResult = {
   modelName: string;
@@ -34,135 +28,37 @@ type GeminiNarrative = {
   authority: string;
 };
 
-function getProjectRoot() {
-  const cwd = process.cwd();
-  const candidates = [
-    cwd,
-    path.join(cwd, "web"),
-    path.resolve(cwd, ".."),
-    path.resolve(cwd, "..", "web"),
-  ];
-
-  for (const candidate of new Set(candidates)) {
-    if (existsSync(path.join(candidate, "predict.py"))) {
-      return candidate;
-    }
+async function runClassifier(photo: File): Promise<ClassifierResult> {
+  const mlApiUrl = process.env.NEXT_PUBLIC_ML_API_URL;
+  if (!mlApiUrl) {
+    throw new Error("Missing NEXT_PUBLIC_ML_API_URL environment variable.");
   }
 
-  return cwd;
-}
-
-function getPythonExecutable(projectRoot: string) {
-  if (process.env.PYTHON_EXECUTABLE) {
-    return process.env.PYTHON_EXECUTABLE;
-  }
-
-  const parent = path.resolve(projectRoot, "..");
-  const candidates = [
-    path.join(projectRoot, ".venv", "Scripts", "python.exe"),
-    path.join(projectRoot, ".venv", "bin", "python"),
-    path.join(parent, ".venv", "Scripts", "python.exe"),
-    path.join(parent, ".venv", "bin", "python"),
-  ];
-
-  for (const candidate of candidates) {
-    if (existsSync(candidate)) {
-      return candidate;
-    }
-  }
-
-  return process.platform === "win32" ? "python" : "python3";
-}
-
-function parseClassifierOutput(stdout: string): ClassifierResult {
-  const rows = stdout
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
-
-  const values = new Map<string, string>();
-  for (const row of rows) {
-    const colonIndex = row.indexOf(":");
-    if (colonIndex <= 0) {
-      continue;
-    }
-
-    const key = row.slice(0, colonIndex).trim();
-    const value = row.slice(colonIndex + 1).trim();
-    values.set(key, value);
-  }
-
-  const prediction = values.get("prediction") ?? "";
-  if (!prediction) {
-    throw new Error("Classifier output is missing a prediction.");
-  }
-
-  const confidenceRaw = Number(values.get("confidence") ?? Number.NaN);
-  const confidence = Number.isFinite(confidenceRaw)
-    ? Math.max(0, Math.min(1, confidenceRaw))
-    : 0;
-
-  return {
-    modelName: values.get("model_name") ?? "baseline",
-    imageSize: Number(values.get("image_size") ?? 224),
-    prediction,
-    confidence,
-    severity: values.get("severity") ?? "low",
-    recommendedAction:
-      values.get("recommended_action") ?? "Schedule a visual field inspection.",
-  };
-}
-
-async function runClassifier(
-  imageBuffer: Buffer,
-  originalFilename: string,
-): Promise<ClassifierResult> {
-  const projectRoot = getProjectRoot();
-  const modelPath = path.join(projectRoot, "artifacts_new_design", "baseline_model.pt");
-  const labelsPath = path.join(projectRoot, "artifacts_new_design", "labels.json");
-  const predictScriptPath = path.join(projectRoot, "predict.py");
-
-  if (!existsSync(modelPath) || !existsSync(labelsPath) || !existsSync(predictScriptPath)) {
-    throw new Error("Classifier artifacts are missing. Ensure baseline_model.pt, labels.json, and predict.py exist.");
-  }
-
-  const extension = path.extname(originalFilename).toLowerCase();
-  const safeExtension = [".jpg", ".jpeg", ".png", ".webp"].includes(extension)
-    ? extension
-    : ".jpg";
-  const tempImagePath = path.join(
-    os.tmpdir(),
-    `roadscout-${Date.now()}-${Math.random().toString(16).slice(2)}${safeExtension}`,
-  );
-
-  await writeFile(tempImagePath, imageBuffer);
-  const pythonExecutable = getPythonExecutable(projectRoot);
+  const formData = new FormData();
+  formData.append("image", photo);
 
   try {
-    const { stdout } = await execFileAsync(
-      pythonExecutable,
-      [
-        predictScriptPath,
-        "--image",
-        tempImagePath,
-        "--model",
-        modelPath,
-        "--labels",
-        labelsPath,
-      ],
-      {
-        cwd: projectRoot,
-        timeout: 120_000,
-        maxBuffer: 1024 * 1024,
-      },
-    );
+    const response = await fetch(`${mlApiUrl}/predict`, {
+      method: "POST",
+      body: formData,
+    });
 
-    return parseClassifierOutput(stdout);
+    if (!response.ok) {
+      throw new Error(`API responded with status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return {
+      modelName: data.modelName ?? data.model_name ?? "baseline",
+      imageSize: Number(data.imageSize ?? data.image_size ?? 224),
+      prediction: data.prediction,
+      confidence: Number(data.confidence ?? 0),
+      severity: data.severity ?? "low",
+      recommendedAction: data.recommendedAction ?? data.recommended_action ?? "Schedule a visual field inspection.",
+    };
   } catch (error) {
-    console.error("Local classifier execution failed.", error);
-    throw new Error("Local classifier failed. Verify Python environment and model artifacts.");
-  } finally {
-    await unlink(tempImagePath).catch(() => undefined);
+    console.error("Remote classifier execution failed.", error);
+    throw new Error("Remote classifier failed. Verify ML API is running and accessible.");
   }
 }
 
@@ -384,7 +280,7 @@ export async function POST(request: Request) {
 
     if (photo.size > MAX_FILE_SIZE) {
       return NextResponse.json(
-        { error: "File is too large. Keep it under 10 MB." },
+        { error: "File is too large. Keep it under 4.5 MB." },
         { status: 400 },
       );
     }
@@ -399,9 +295,13 @@ export async function POST(request: Request) {
       );
     }
 
-    const geocodedAddress = await reverseGeocodeCoordinates(latitude, longitude);
-    const buffer = Buffer.from(await photo.arrayBuffer());
-    const classifier = await runClassifier(buffer, photo.name);
+    // Run geocoding, classification, and buffer extraction in parallel to prevent Vercel 504 timeouts
+    const [geocodedAddress, classifier, arrayBuffer] = await Promise.all([
+      reverseGeocodeCoordinates(latitude, longitude),
+      runClassifier(photo),
+      photo.arrayBuffer(),
+    ]);
+    const buffer = Buffer.from(arrayBuffer);
 
     let analysisSummary = "";
     let authorityToReport = defaultAuthorityFromAddress(
@@ -473,8 +373,8 @@ export async function POST(request: Request) {
             : message === "OpenStreetMap reverse geocoding request failed."
               ? "Location geocoding failed. Verify OpenStreetMap access and contact email settings."
               : message ===
-                  "Local classifier failed. Verify Python environment and model artifacts."
-                ? "The local AI classifier failed. Check Python/.venv and artifact files before retrying."
+                  "Remote classifier failed. Verify ML API is running and accessible."
+                ? "The remote AI classifier failed. Check the ML API deployment before retrying."
             : "The report could not be saved. Verify MongoDB and OpenStreetMap geocoding access.",
       },
       { status: 503 },

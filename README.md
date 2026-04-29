@@ -1,7 +1,7 @@
 # RoadScout (HackKU 2026)
 
 RoadScout is a road-damage reporting app that combines:
-- A local PyTorch classifier for road-damage type and severity
+- A PyTorch classifier for road-damage type and severity (deployed externally via Railway)
 - A Next.js web app for upload, geolocation, map display, and report history
 - Gemini-generated reporting summaries and authority recommendations
 - MongoDB storage for uploaded photos and analysis results
@@ -21,7 +21,9 @@ These capture habits substantially improve class and severity reliability.
 ## Repository Structure
 
 - `web/`: Next.js frontend + API routes
-- `predict.py`: CLI image inference script used by the web API
+- `api.py`: FastAPI server used to host the ML model on Railway
+- `Procfile`: Command configuration to start the FastAPI server in production
+- `predict.py`: CLI image inference script
 - `app.py`: Streamlit demo for quick standalone model testing
 - `train_baseline.py`: Model training script
 - `prepare_rdd_imagefolder.py`: Dataset conversion utility
@@ -63,13 +65,14 @@ MONGODB_URI=your_mongodb_connection_string
 MONGODB_DB=your_database_name
 GEMINI_API=your_gemini_api_key
 NOMINATIM_CONTACT_API=your_contact_email_or_identifier
+NEXT_PUBLIC_ML_API_URL=https://your-railway-app-url.up.railway.app
 ```
 
 Notes:
 - `MONGODB_DB` can also be provided as `MONGO_DB_NAME`.
 - `GEMINI_API_KEY` is also accepted instead of `GEMINI_API`.
 - `NOMINATIM_CONTACT_EMAIL` is also accepted instead of `NOMINATIM_CONTACT_API`.
-- The API route attempts to use `.venv\Scripts\python.exe` automatically for local classifier execution.
+- The API route sends inference requests to `NEXT_PUBLIC_ML_API_URL` instead of running the local classifier.
 - For local development, prefer `web/.env.local` over `web/.env`.
 
 ## 4) Run the App Locally
